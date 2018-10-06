@@ -8,6 +8,11 @@
 require('./bootstrap');
 
 window.Vue = require('vue');
+import App from './components/TodoList.vue'
+
+import VueMaterial from 'vue-material'
+import 'vue-material/dist/vue-material.min.css'
+import 'vue-material/dist/theme/default.css'
 
 /**
  * Next, we will create a fresh Vue application instance and attach it to
@@ -15,8 +20,11 @@ window.Vue = require('vue');
  * or customize the JavaScript scaffolding to fit your unique needs.
  */
 
-Vue.component('example-component', require('./components/ExampleComponent.vue'));
+Vue.use(VueMaterial);
 
 const app = new Vue({
-    el: '#app'
+    el: '#app',
+    components: {
+        'todo-list': App
+    }
 });
