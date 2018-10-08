@@ -34,7 +34,40 @@
                 <span v-else>Добавить задачу</span>
             </md-button>
 
-            <tasks></tasks>
+            <div class="md-layout-item md-size-100 text-center" v-if="!tasks.length">
+                Добавьте
+            </div>
+
+            <md-table>
+                <md-table-row>
+                    <md-table-head md-numeric>ID</md-table-head>
+                    <md-table-head>Задача</md-table-head>
+                    <md-table-head>Дата создания</md-table-head>
+                    <md-table-head>Действия</md-table-head>
+                </md-table-row>
+
+                <!--Список-->
+                <md-table-row v-for="task in tasks" :key="task.id">
+                    <md-table-cell md-numeric>
+                        {{ task.id}}
+                    </md-table-cell>
+                    <md-table-cell class="task-block">
+                        {{ task.task }}
+
+                        <md-button class="btn-edit" @click="showEditDialog(task)">
+                            <md-icon>create</md-icon>
+                        </md-button>
+                    </md-table-cell>
+                    <md-table-cell>
+                        {{ task.created_at }}
+                    </md-table-cell>
+                    <md-table-cell>
+                        <md-button>
+                            <md-icon class="text-danger">delete</md-icon>
+                        </md-button>
+                    </md-table-cell>
+                </md-table-row>
+            </md-table>
         </md-content>
 
         <md-snackbar :md-active="showSnackBar" :md-duration="3000">{{ statusMsg }}</md-snackbar>
@@ -43,27 +76,54 @@
             <md-progress-spinner :md-diameter="20" md-mode="indeterminate"></md-progress-spinner>
             <div id="loaderText">{{ loaderText }}</div>
         </div>
+
+        <md-dialog :md-active.sync="showDialog">
+            <md-dialog-title>Редактирование задачи</md-dialog-title>
+
+            <md-content>
+                <form novalidate class="md-layout" @submit.prevent="validateForm">
+
+                    <div class="md-layout-item md-size-100">
+                        <md-field>
+                            <label for="taskEdit">Задача</label>
+                            <md-textarea name="task" id="taskEdit" v-model="formTaskEdit" :disabled="sending" />
+                        </md-field>
+                    </div>
+
+                    <md-progress-bar md-mode="indeterminate" v-if="sending" />
+
+
+                </form>
+            </md-content>
+
+            <md-dialog-actions>
+                <md-button class="md-primary" @click="showDialog = false">
+                    Отмена
+                </md-button>
+                <md-button type="submit" class="md-primary md-layout-item  md-size-100" :disabled="canSubmit">
+                    Сохранить
+                </md-button>
+            </md-dialog-actions>
+        </md-dialog>
     </div>
 </template>
 
 <script>
-    let Tasks = require('./Tasks.vue');
-
     export default {
         name: 'TodoList',
-        components: {
-            'tasks': Tasks
-        },
         data: function () {
             return {
                 tasks: [],
                 loaderText: '',
                 statusMsg: '',
                 formTask: '',
+                formTaskEdit: '',
+                formTaskEditId: '',
                 showAddForm: false,
                 sending: false,
                 taskSaved: false,
                 showSnackBar: false,
+                showDialog: false,
             }
         },
         mounted: function () {
@@ -76,6 +136,13 @@
             },
         },
         methods: {
+            //
+            showEditDialog (task) {
+                this.formTaskEdit = task.task;
+                this.formTaskEditId = task.id;
+
+                this.showDialog = true;
+            },
             // Валидация формы
             validateForm () {
                 this.loaderText = 'Подождите, идёт добавление';
@@ -88,24 +155,40 @@
                     this.statusMsg = 'Текст задачи не должен содержать знака "!"';
                 }
             },
-            // Сохранение задачи
-            saveTask () {
-                this.sending = true;
+            //
+            create () {
                 let data = {
                     'task': this.formTask
                 };
+                this.saveTask('/api/tasks', data, 'create');
+            },
+            //
+            update () {
+                let data = {
+                    'task': this.formTaskEdit
+                };
+                this.saveTask('/api/tasks/' + this.formTaskEditId, data, 'update');
+            },
+            // Сохранение задачи
+            saveTask (url, data, type) {
+                this.sending = true;
 
-                window.axios.post('/api/tasks', data)
+                window.axios.post(url, data)
                     .then(function (response) {
-                        // handle success
-                        console.log(response);
                         if (response.data.status === 'true') {
-                            this.tasks.push(response.data.task);
+                            if (type === 'create') {
+                                this.tasks.push(response.data.task);
+                            } else {
+                                this.tasks.find(function (task) {
+                                    return task.id === this.formTaskEditId
+                                }).task = response.data.task.task;
+                            }
                             this.showAddForm = false;
                             this.formTask = '';
                             this.sending = false;
                         } else {
-                            //
+                            this.showSnackBar = true;
+                            this.statusMsg = 'Произошла ошибка!';
                         }
                     }.bind(this))
                     .catch(function (error) {
@@ -127,8 +210,8 @@
                         });
                     }.bind(this))
                     .catch(function (error) {
-                        // handle error
-                        console.log(error);
+                        this.showSnackBar = true;
+                        this.statusMsg = 'Произошла ошибка!';
                     })
                     .then(function () {
                         this.loaderText = '';

@@ -7,6 +7,27 @@
   text-align: center;
 }
 
+.text-danger {
+  color: #ff3a52!important;
+}
+
+.btn-edit{
+  display: none!important;
+  position: absolute!important;
+  right: 0;
+  top: 0;
+}
+
+.task-block{
+  position: relative;
+
+  &:hover, &:focus {
+    .btn-edit {
+      display: inline-block!important;
+    }
+  }
+}
+
 #Loader {
   display: flex;
   justify-content: center;
