@@ -155,19 +155,18 @@
             },
         },
         methods: {
-            //
+            //Открыть форму добавления
             openAdd () {
                 this.formTask = '';
                 this.showAddForm = true;
             },
-            //
+            //Открыть форму редактирования
             openEditDialog (task) {
-                //@todo delete formTaskEditId
                 this.formTask = task.task;
                 this.formTaskEditId = task.id;
                 this.showDialog = true;
             },
-            //
+            //Открыть форму удаления
             openDeleteDialog (task) {
                 this.formTaskDelete = task;
                 this.showDialogDelete = true;
@@ -216,6 +215,7 @@
 
                 window.axios.post(url, data)
                     .then(function (response) {
+                        //если прошло успешно
                         if (response.data.status === 'true') {
                             if (type === 'create') {
                                 this.tasks.push(response.data.task);
