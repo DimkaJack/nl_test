@@ -20,6 +20,8 @@ class TodoController extends Controller
 
     /**
      * Создание
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
      */
     public function store(Request $request)
     {
@@ -38,20 +40,36 @@ class TodoController extends Controller
     /**
      * Редактирование
      *
+     * @param Request $request
      * @param Task $task
+     * @return \Illuminate\Http\JsonResponse
      */
-    public function update(Task $task)
+    public function update(Request $request, Task $task)
     {
-        //
+        if ($task->update($request->only('task'))) {
+            return response()->json([
+                'status' => 'true',
+            ], 200);
+        } else {
+            return response()->json(501);
+        }
     }
 
     /**
      * Удаление
      *
      * @param Task $task
+     * @return \Illuminate\Http\JsonResponse
+     * @throws \Exception
      */
     public function destroy(Task $task)
     {
-        //
+        if ($task->delete()) {
+            return response()->json([
+                'status' => 'true',
+            ], 200);
+        } else {
+            return response()->json(501);
+        }
     }
 }

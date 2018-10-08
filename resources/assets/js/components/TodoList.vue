@@ -10,7 +10,7 @@
             </md-toolbar>
 
             <md-content>
-                <form novalidate class="md-layout" @submit.prevent="validateForm">
+                <form novalidate class="md-layout" @submit.prevent="validateForm('create')">
 
                     <div class="md-layout-item md-size-100">
                         <md-field>
@@ -18,8 +18,6 @@
                             <md-textarea name="task" id="task" v-model="formTask" :disabled="sending" />
                         </md-field>
                     </div>
-
-                    <md-progress-bar md-mode="indeterminate" v-if="sending" />
 
                     <md-button type="submit" class="md-primary md-layout-item  md-size-100" :disabled="canSubmit">
                         Добавить задачу
@@ -29,7 +27,7 @@
         </md-drawer>
 
         <md-content>
-            <md-button class="md-layout-item md-primary md-size-100" @click="showAddForm = true">
+            <md-button class="md-layout-item md-primary md-size-100" @click="openAdd">
                 <span v-if="!tasks.length">Cоздать первую задачу</span>
                 <span v-else>Добавить задачу</span>
             </md-button>
@@ -54,7 +52,7 @@
                     <md-table-cell class="task-block">
                         {{ task.task }}
 
-                        <md-button class="btn-edit" @click="showEditDialog(task)">
+                        <md-button class="btn-edit" @click="openEditDialog(task)">
                             <md-icon>create</md-icon>
                         </md-button>
                     </md-table-cell>
@@ -62,7 +60,7 @@
                         {{ task.created_at }}
                     </md-table-cell>
                     <md-table-cell>
-                        <md-button>
+                        <md-button @click="openDeleteDialog(task)">
                             <md-icon class="text-danger">delete</md-icon>
                         </md-button>
                     </md-table-cell>
@@ -78,30 +76,50 @@
         </div>
 
         <md-dialog :md-active.sync="showDialog">
+            <md-progress-bar md-mode="indeterminate" v-if="sending" />
+
             <md-dialog-title>Редактирование задачи</md-dialog-title>
 
             <md-content>
-                <form novalidate class="md-layout" @submit.prevent="validateForm">
 
                     <div class="md-layout-item md-size-100">
                         <md-field>
                             <label for="taskEdit">Задача</label>
-                            <md-textarea name="task" id="taskEdit" v-model="formTaskEdit" :disabled="sending" />
+                            <md-textarea name="task" id="taskEdit" v-model="formTask" :disabled="sending" />
                         </md-field>
                     </div>
 
-                    <md-progress-bar md-mode="indeterminate" v-if="sending" />
-
-
-                </form>
             </md-content>
 
             <md-dialog-actions>
-                <md-button class="md-primary" @click="showDialog = false">
+                <md-button class="md-accent" @click="showDialog = false">
                     Отмена
                 </md-button>
-                <md-button type="submit" class="md-primary md-layout-item  md-size-100" :disabled="canSubmit">
+                <md-button type="button" class="md-primary" @click="validateForm('update')" :disabled="canSubmit">
                     Сохранить
+                </md-button>
+            </md-dialog-actions>
+        </md-dialog>
+
+        <md-dialog :md-active.sync="showDialogDelete">
+            <md-progress-bar md-mode="indeterminate" v-if="sending" />
+
+            <md-dialog-title>Удаление задачи</md-dialog-title>
+
+            <md-content>
+
+                    <div class="md-layout-item md-size-100">
+                       <p>Вы уверены, что хотите удалить задачу?</p>
+                    </div>
+
+            </md-content>
+
+            <md-dialog-actions>
+                <md-button class="md-accent" @click="showDialogDelete = false">
+                    Отмена
+                </md-button>
+                <md-button type="button" class="md-primary" @click="deleteTask" :disabled="sending">
+                    Удалить
                 </md-button>
             </md-dialog-actions>
         </md-dialog>
@@ -117,13 +135,14 @@
                 loaderText: '',
                 statusMsg: '',
                 formTask: '',
-                formTaskEdit: '',
+                formTaskDelete: null,
                 formTaskEditId: '',
                 showAddForm: false,
                 sending: false,
                 taskSaved: false,
                 showSnackBar: false,
                 showDialog: false,
+                showDialogDelete: false,
             }
         },
         mounted: function () {
@@ -137,18 +156,30 @@
         },
         methods: {
             //
-            showEditDialog (task) {
-                this.formTaskEdit = task.task;
+            openAdd () {
+                this.formTask = '';
+                this.showAddForm = true;
+            },
+            //
+            openEditDialog (task) {
+                //@todo delete formTaskEditId
+                this.formTask = task.task;
                 this.formTaskEditId = task.id;
-
                 this.showDialog = true;
             },
+            //
+            openDeleteDialog (task) {
+                this.formTaskDelete = task;
+                this.showDialogDelete = true;
+            },
             // Валидация формы
-            validateForm () {
-                this.loaderText = 'Подождите, идёт добавление';
-
+            validateForm (type) {
                 if (this.formTask.search(/\!/) === -1) {
-                    this.saveTask();
+                    if (type === 'create') {
+                        this.create();
+                    } else {
+                        this.update();
+                    }
                 } else {
                     this.loaderText = '';
                     this.showSnackBar = true;
@@ -157,6 +188,7 @@
             },
             //
             create () {
+                this.loaderText = 'Подождите, идёт добавление';
                 let data = {
                     'task': this.formTask
                 };
@@ -165,27 +197,40 @@
             //
             update () {
                 let data = {
-                    'task': this.formTaskEdit
+                    'task': this.formTask,
+                    '_method': 'PUT',
                 };
                 this.saveTask('/api/tasks/' + this.formTaskEditId, data, 'update');
+            },
+            //
+            deleteTask () {
+                let data = {
+                    '_method': 'DELETE',
+                };
+                this.saveTask('/api/tasks/' + this.formTaskDelete.id, data, 'delete');
             },
             // Сохранение задачи
             saveTask (url, data, type) {
                 this.sending = true;
+                let self = this;
 
                 window.axios.post(url, data)
                     .then(function (response) {
                         if (response.data.status === 'true') {
                             if (type === 'create') {
                                 this.tasks.push(response.data.task);
-                            } else {
+                            } else if (type === 'update') {
                                 this.tasks.find(function (task) {
-                                    return task.id === this.formTaskEditId
-                                }).task = response.data.task.task;
+                                    return task.id === self.formTaskEditId
+                                }).task = this.formTask;
+                            } else {
+                                let task_index = this.tasks.findIndex(function (task) {
+                                    return task.id === self.formTaskDelete.id
+                                });
+                                this.tasks.splice(task_index, 1);
                             }
                             this.showAddForm = false;
                             this.formTask = '';
-                            this.sending = false;
                         } else {
                             this.showSnackBar = true;
                             this.statusMsg = 'Произошла ошибка!';
@@ -194,9 +239,13 @@
                     .catch(function (error) {
                         this.showSnackBar = true;
                         this.statusMsg = 'Произошла ошибка!';
-                    })
+                        console.log(error);
+                    }.bind(this))
                     .then(function () {
                         this.loaderText = '';
+                        this.sending = false;
+                        this.showDialog = false;
+                        this.showDialogDelete = false;
                     }.bind(this));
             },
             // Получение списка задач
@@ -212,7 +261,7 @@
                     .catch(function (error) {
                         this.showSnackBar = true;
                         this.statusMsg = 'Произошла ошибка!';
-                    })
+                    }.bind(this))
                     .then(function () {
                         this.loaderText = '';
                     }.bind(this));
